@@ -1,0 +1,35 @@
+{
+  "name": "freellmapi",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm run build -w client && cross-env PORT=3000 HOST=0.0.0.0 npm run dev -w server",
+    "dev:lan": "npm run build -w client && cross-env PORT=3000 HOST=0.0.0.0 npm run dev -w server -- --host",
+    "test": "npm run test -w server && npm run test -w client --if-present",
+    "lint": "npm run lint -w client --if-present",
+    "build": "npm run build -w client && npm run build -w server",
+    "start": "cross-env PORT=3000 HOST=0.0.0.0 node server/dist/index.js",
+    "build:server": "npm run build -w server",
+    "test:migrations": "npm run test:migrations -w server",
+    "desktop:dev": "npm run build -w client && npm --prefix desktop run dev",
+    "desktop:dist": "npm run build -w client && npm --prefix desktop run dist",
+    "desktop:dist:win": "npm run build -w client && npm --prefix desktop run dist:win",
+    "db:migration:up": "npm run db:migration:up -w server",
+    "db:migration:down": "npm run db:migration:down -w server",
+    "db:migration:fresh": "npm run db:migration:fresh -w server",
+    "db:migration:status": "npm run db:migration:status -w server",
+    "db:migration:create": "npm run db:migration:create -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0"
+  },
+  "engines": {
+    "node": ">=20.18.0 <25.0.0",
+    "npm": ">=10.0.0"
+  }
+}

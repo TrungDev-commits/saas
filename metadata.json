@@ -1,0 +1,6 @@
+{
+  "name": "FreeLLMAPI",
+  "description": "Unified LLM Router and proxy for OpenAI, Anthropic, Gemini, and other models.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
