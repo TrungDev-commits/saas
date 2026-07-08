@@ -194,7 +194,7 @@ keysRouter.get('/', async (_req: Request, res: Response) => {
       modelsByKeyId.set(keyIdStr, list);
     }
 
-    const keys = rows.map(row => {
+    const keys = rows.map((row: any) => {
       let maskedKey = '****';
       try {
         const realKey = decrypt(row.encryptedKey, row.iv, row.authTag);
@@ -236,7 +236,7 @@ keysRouter.get('/export', async (req: Request, res: Response) => {
     });
 
     const decryptedKeys = rows
-      .map(row => {
+      .map((row: any) => {
         let key = '';
         try {
           key = decrypt(row.encryptedKey, row.iv, row.authTag);
@@ -250,7 +250,7 @@ keysRouter.get('/export', async (req: Request, res: Response) => {
           baseUrl: row.baseUrl || undefined,
         };
       })
-      .filter(k => {
+      .filter((k: any) => {
         const v = k.key.trim();
         return v.length > 0 && v !== 'no-key';
       });
@@ -261,7 +261,7 @@ keysRouter.get('/export', async (req: Request, res: Response) => {
     }
 
     if (format === 'env') {
-      const lines = decryptedKeys.map(k => {
+      const lines = decryptedKeys.map((k: any) => {
         const envKey = `${k.platform.toUpperCase()}_KEY=${k.key}`;
         return k.label ? `# ${k.label}\n${envKey}` : envKey;
       });
@@ -276,7 +276,7 @@ keysRouter.get('/export', async (req: Request, res: Response) => {
       const escCsv = (v: string) => `"${v.replace(/"/g, '""')}"`;
       const neutralize = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
       const header = 'platform,key,label';
-      const lines = decryptedKeys.map(k =>
+      const lines = decryptedKeys.map((k: any) =>
         [escCsv(k.platform), escCsv(k.key), escCsv(neutralize(k.label))].join(',')
       );
       const content = [header, ...lines].join('\n') + '\n';

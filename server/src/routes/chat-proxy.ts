@@ -39,15 +39,15 @@ async function retrieveLearnedKnowledge(skillId: string, userQuery: string): Pro
       where: { documentId: doc.id }
     });
 
-    const matches = chunks.map(c => {
+    const matches = chunks.map((c: { embedding: number[]; content: string }) => {
       const similarity = cosineSimilarity(queryVector, c.embedding);
       return { content: c.content, similarity };
     })
-    .filter(item => item.similarity > 0.35) // Ngưỡng tương đồng
-    .sort((a, b) => b.similarity - a.similarity)
+    .filter((item: { similarity: number }) => item.similarity > 0.35) // Ngưỡng tương đồng
+    .sort((a: { similarity: number }, b: { similarity: number }) => b.similarity - a.similarity)
     .slice(0, 3); // Lấy top 3 facts liên quan nhất
 
-    return matches.map(m => m.content);
+    return matches.map((m: { content: string }) => m.content);
   } catch (err) {
     console.error('Lỗi khi truy xuất tri thức tự học:', err);
     return [];
