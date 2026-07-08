@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: trungsaas
+    runtime: docker
+    # Render sẽ build Docker image từ repo này
+    dockerfilePath: ./Dockerfile
+    # Render tự set PORT — app đọc từ process.env.PORT
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      # Sinh ENCRYPTION_KEY bằng: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      # Sau đó set trên Render Dashboard > Environment
+      - key: ENCRYPTION_KEY
+        sync: false   # Nhập tay trên Render dashboard, không lưu trong file này
+      - key: MONGODB_URL
+        sync: false   # Nhập URL kết nối MongoDB Atlas trên Render Dashboard
+      # Chỉ định đường dẫn DB SQLite tạm thời
+      - key: FREEAPI_DB_PATH
+        value: /tmp/freeapi.db
+

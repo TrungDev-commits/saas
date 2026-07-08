@@ -1,32 +1,36 @@
 import type { Request, Response, NextFunction } from 'express';
 import { validateSession } from '../services/auth.js';
-import { getDb } from '../db/index.js';
+import { getPrisma } from '../lib/prisma.js';
 
 export interface ExtendedSessionUser {
-  userId: number;
+  userId: string;
   email: string;
   role: string;
 }
 
 // Gate the /api/* admin surface behind a dashboard session.
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, '')
     ?? (req.headers['x-dashboard-token'] as string | undefined);
-  const session = validateSession(token);
+    
+  const session = await validateSession(token);
   if (!session) {
     res.status(401).json({ error: { message: 'Authentication required', type: 'authentication_error' } });
     return;
   }
 
-  // Fetch the role of the user from database
+  // Fetch the role of the user from MongoDB
   let role = 'user';
   try {
-    const userRow = getDb().prepare('SELECT role FROM users WHERE id = ?').get(session.userId) as { role: string } | undefined;
-    if (userRow) {
-      role = userRow.role;
+    const user = await getPrisma().user.findUnique({
+      where: { id: session.userId },
+      select: { role: true }
+    });
+    if (user) {
+      role = user.role;
     }
   } catch (err) {
-    // Fallback if column does not exist yet (before migration runs fully)
+    // Fallback
   }
 
   (req as Request & { user?: ExtendedSessionUser }).user = {
@@ -47,4 +51,3 @@ export function requireRole(allowedRoles: string[]) {
     next();
   };
 }
-

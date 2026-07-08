@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URL")
+}
+
+// === AUTH ===
+model User {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  role         String        @default("user")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  sessions     Session[]
+  chatSessions ChatSession[]
+}
+
+model Session {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash   String   @unique @map("token_hash")
+  userId      String   @map("user_id") @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAtMs BigInt   @map("expires_at_ms")
+  createdAt   DateTime @default(now()) @map("created_at")
+}
+
+// === SETTINGS ===
+model Setting {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  key   String @unique
+  value String
+}
+
+// === API KEYS ===
+model ApiKey {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  platform      String
+  label         String    @default("")
+  encryptedKey  String    @map("encrypted_key")
+  iv            String
+  authTag       String    @map("auth_tag")
+  baseUrl       String?   @map("base_url")
+  status        String    @default("unknown")
+  enabled       Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastCheckedAt DateTime? @map("last_checked_at")
+}
+
+// === SKILLS (AI Experts) ===
+model Skill {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  name         String          @unique
+  description  String?
+  systemPrompt String          @map("system_prompt")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  knowledge    SkillKnowledge?
+  chatSessions ChatSession[]
+}
+
+// === AI SELF-LEARNING KNOWLEDGE ===
+model SkillKnowledge {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  skillId   String   @unique @map("skill_id") @db.ObjectId
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  facts     String[]
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+// === CHAT HISTORY ===
+model ChatSession {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  title       String        @default("Cuộc hội thoại mới")
+  type        String        @default("playground") // "docs-qa" | "expert" | "playground"
+  userId      String?       @map("user_id") @db.ObjectId
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  skillId     String?       @map("skill_id") @db.ObjectId
+  skill       Skill?        @relation(fields: [skillId], references: [id], onDelete: SetNull)
+  documentIds String[]      @map("document_ids")
+  model       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  messages    ChatMessage[]
+}
+
+model ChatMessage {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId    String      @map("session_id") @db.ObjectId
+  session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role         String      // "user" | "assistant" | "system"
+  content      String
+  sourcesJson  String?     @map("sources_json")
+  inputTokens  Int?        @map("input_tokens")
+  outputTokens Int?        @map("output_tokens")
+  createdAt    DateTime    @default(now()) @map("created_at")
+}
+
+// === RAG DOCUMENTS ===
+model Document {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  filename  String
+  filePath  String?         @map("file_path")
+  createdAt DateTime        @default(now()) @map("created_at")
+  chunks    DocumentChunk[]
+}
+
+model DocumentChunk {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  documentId String   @map("document_id") @db.ObjectId
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String
+  embedding  Float[]
+  createdAt  DateTime @default(now()) @map("created_at")
+}

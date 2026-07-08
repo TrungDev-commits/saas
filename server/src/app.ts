@@ -21,6 +21,8 @@ import { authRouter } from './routes/auth.js';
 import { docsRouter } from './routes/docs.js';
 import { ragRouter } from './routes/rag.js';
 import { skillsRouter } from './routes/skills.js';
+import { chatProxyRouter } from './routes/chat-proxy.js';
+import { chatHistoryRouter } from './routes/chat-history.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { createProxyRateLimiter } from './middleware/rateLimit.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -87,6 +89,9 @@ export function createApp(config?: Config) {
   app.use('/api/cache', requireAuth, cacheRouter);
   app.use('/api/rag', requireAuth, ragRouter);
   app.use('/api/skills', requireAuth, skillsRouter);
+  app.use('/api/chat', requireAuth, chatProxyRouter);
+  app.use('/api/chat/history', requireAuth, chatHistoryRouter);
+
 
   // Static, unauthenticated API reference: GET /v1/docs (viewer) and
   // GET /v1/openapi.json (spec). Mounted before the rate limiter so the docs
