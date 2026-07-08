@@ -13,8 +13,8 @@ COPY package.json package-lock.json ./
 COPY shared/package.json ./shared/
 COPY client/package.json ./client/
 COPY --from=build-shared /app/shared ./shared
-# Install only client deps and fix missing native bindings for Alpine (Vite/Rolldown)
-RUN npm ci --workspace=client && npm install -w client @rolldown/binding-linux-x64-musl
+# Install only client deps and fix missing native bindings for Alpine (Vite/Rolldown/Lightningcss)
+RUN npm ci --workspace=client && npm install -w client @rolldown/binding-linux-x64-musl lightningcss-linux-x64-musl
 COPY client/ ./client/
 RUN npm run build -w client
 
