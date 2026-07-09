@@ -28,7 +28,7 @@ COPY --from=build-shared /app/shared ./shared
 # Install all server deps (including devDependencies for tsc)
 RUN npm ci --workspace=server
 COPY server/ ./server/
-RUN npx prisma generate --schema=server/prisma/schema.prisma
+RUN npx --no-install prisma generate --schema=server/prisma/schema.prisma
 RUN npm run build -w server
 
 # ── Stage 4: production image ───────────────────────────────────────────────
