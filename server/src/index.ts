@@ -11,6 +11,7 @@ import { applyDeclarativeConfigFromEnv } from './services/declarative-config.js'
 import { restoreDbBackupIfNeeded, startDbBackupPump } from './lib/db-backup.js';
 import { userCount } from './services/auth.js';
 import { generateSetupCode } from './lib/setup-code.js';
+import { syncApiKeys } from './lib/key-sync.js';
 
 async function main() {
   const config = loadConfig();
@@ -29,6 +30,7 @@ async function main() {
   }
   initDb(config.dbPath ?? undefined);
   applyDeclarativeConfigFromEnv();
+  await syncApiKeys();
 
   // First-run hardening: when the dashboard is still unclaimed, mint a one-time
   // setup code and log it. A loopback browser can finish setup without it; a

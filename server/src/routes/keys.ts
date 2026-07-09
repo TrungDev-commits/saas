@@ -9,6 +9,7 @@ import { resolveProvider } from '../providers/index.js';
 import { encrypt, decrypt, maskKey } from '../lib/crypto.js';
 import { parseKeysFromFile, stripJsoncComments, stripTrailingCommas } from '../lib/key-parser.js';
 import { assessProviderUrl } from '../lib/url-guard.js';
+import { syncApiKeys } from '../lib/key-sync.js';
 
 import type { Platform } from '@freellmapi/shared';
 
@@ -330,6 +331,7 @@ keysRouter.post('/', async (req: Request, res: Response) => {
           where: { id: existing.id },
           data: { enabled: true, status: 'unknown' }
         });
+        await syncApiKeys();
         res.status(200).json({
           id: updated.id,
           platform,
@@ -356,6 +358,8 @@ keysRouter.post('/', async (req: Request, res: Response) => {
         enabled: true
       }
     });
+
+    await syncApiKeys();
 
     res.status(201).json({
       id: created.id,
@@ -520,6 +524,8 @@ keysRouter.post('/custom', async (req: Request, res: Response) => {
     } catch (sqliteErr) {
       console.error('Error binding models to local SQLite database:', sqliteErr);
     }
+
+    await syncApiKeys();
 
     const first = registered[0] || { model: 'custom-model', displayName: 'Custom Model', modelDbId: 999, supportsTools: true, supportsVision: false };
     res.status(201).json({
@@ -687,6 +693,8 @@ keysRouter.post('/import-selected', async (req: Request, res: Response) => {
       }
     }
 
+    await syncApiKeys();
+
     res.json({
       imported,
       skipped: [],
@@ -739,6 +747,8 @@ keysRouter.delete('/:id', async (req: Request, res: Response) => {
       }
     }
 
+    await syncApiKeys();
+
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -765,6 +775,7 @@ keysRouter.patch('/platform/:platform', async (req: Request, res: Response) => {
       where: { platform },
       data: { enabled }
     });
+    await syncApiKeys();
     res.json({ success: true, enabled, updatedKeys: result.count });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -799,6 +810,7 @@ keysRouter.patch('/:id', async (req: Request, res: Response) => {
     const response: Record<string, unknown> = { success: true };
     if (enabled !== undefined) response.enabled = updated.enabled;
     if (label !== undefined) response.label = updated.label;
+    await syncApiKeys();
     res.json(response);
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

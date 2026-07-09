@@ -4,17 +4,24 @@ import { decrypt } from '../lib/crypto.js';
 import type { Platform, KeyStatus } from '@freellmapi/shared/types.js';
 import { inferQuotaPoolKey } from './provider-quota.js';
 import type { Scheduler } from '../lib/scheduler.js';
+import { getPrisma } from '../lib/prisma.js';
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const CONSECUTIVE_FAILURES_TO_DISABLE = 3;
 
 // Track consecutive failures per key
-const failureCount = new Map<number, number>();
+const failureCount = new Map<number | string, number>();
 
-export async function checkKeyHealth(keyId: number): Promise<KeyStatus> {
+export async function checkKeyHealth(keyId: string | number): Promise<KeyStatus> {
   const db = getDb();
-  const row = db.prepare('SELECT * FROM api_keys WHERE id = ?').get(keyId) as any;
+  let row = db.prepare('SELECT * FROM api_keys WHERE id = ?').get(keyId) as any;
+  if (!row) {
+    row = db.prepare('SELECT * FROM api_keys WHERE mongo_id = ?').get(keyId) as any;
+  }
   if (!row) return 'error';
+
+  const sqliteId = row.id;
+  const mongoId = row.mongo_id; // could be null if local only
 
   const provider = resolveProvider(row.platform as Platform, row.base_url);
   if (!provider) return 'error';
@@ -23,7 +30,7 @@ export async function checkKeyHealth(keyId: number): Promise<KeyStatus> {
     const apiKey = decrypt(row.encrypted_key, row.iv, row.auth_tag);
     const isValid = await provider.validateKey(apiKey, {
       platform: row.platform as Platform,
-      keyId,
+      keyId: sqliteId,
       quotaPoolKey: inferQuotaPoolKey(row.platform as Platform, null),
       endpoint: 'models',
       origin: 'health',
@@ -32,17 +39,34 @@ export async function checkKeyHealth(keyId: number): Promise<KeyStatus> {
     const status: KeyStatus = isValid ? 'healthy' : 'invalid';
 
     db.prepare("UPDATE api_keys SET status = ?, last_checked_at = datetime('now') WHERE id = ?")
-      .run(status, keyId);
+      .run(status, sqliteId);
+
+    // Synchronize to MongoDB/Prisma
+    if (mongoId) {
+      try {
+        const isAutoDisable = !isValid && (failureCount.get(sqliteId) ?? 0) + 1 >= CONSECUTIVE_FAILURES_TO_DISABLE;
+        await getPrisma().apiKey.update({
+          where: { id: mongoId },
+          data: {
+            status,
+            lastCheckedAt: new Date(),
+            enabled: isAutoDisable ? false : undefined
+          }
+        });
+      } catch (mongoErr: any) {
+        console.error(`[Health] Failed to update MongoDB status for key ${mongoId}:`, mongoErr.message);
+      }
+    }
 
     if (isValid) {
-      failureCount.delete(keyId);
+      failureCount.delete(sqliteId);
     } else {
-      const count = (failureCount.get(keyId) ?? 0) + 1;
-      failureCount.set(keyId, count);
+      const count = (failureCount.get(sqliteId) ?? 0) + 1;
+      failureCount.set(sqliteId, count);
 
       if (count >= CONSECUTIVE_FAILURES_TO_DISABLE) {
-        db.prepare('UPDATE api_keys SET enabled = 0 WHERE id = ?').run(keyId);
-        console.log(`[Health] Auto-disabled key ${keyId} after ${count} consecutive failures`);
+        db.prepare('UPDATE api_keys SET enabled = 0 WHERE id = ?').run(sqliteId);
+        console.log(`[Health] Auto-disabled key ${sqliteId} after ${count} consecutive failures`);
       }
     }
 
@@ -57,11 +81,27 @@ export async function checkKeyHealth(keyId: number): Promise<KeyStatus> {
     // (cron bff5ae167d28) that scrapes /tmp/freellmapi.log for these lines
     // continues to match unchanged.
     console.error(
-      `[Health] Key ${keyId} (${row.platform}, base=${row.base_url ?? 'default'}) ` +
+      `[Health] Key ${sqliteId} (${row.platform}, base=${row.base_url ?? 'default'}) ` +
       `transport error: ${err.message}`,
     );
     db.prepare("UPDATE api_keys SET status = ?, last_checked_at = datetime('now') WHERE id = ?")
-      .run('error', keyId);
+      .run('error', sqliteId);
+
+    // Synchronize error status to MongoDB/Prisma
+    if (mongoId) {
+      try {
+        await getPrisma().apiKey.update({
+          where: { id: mongoId },
+          data: {
+            status: 'error',
+            lastCheckedAt: new Date()
+          }
+        });
+      } catch (mongoErr: any) {
+        console.error(`[Health] Failed to update MongoDB status for key ${mongoId}:`, mongoErr.message);
+      }
+    }
+
     return 'error';
   }
 }

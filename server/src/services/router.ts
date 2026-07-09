@@ -97,6 +97,7 @@ interface KeyRow {
   status: string;
   enabled: number;
   base_url: string | null;
+  mongo_id?: string | null;
 }
 
 // Chain row joined with the model fields the bandit needs to score it.
@@ -127,7 +128,7 @@ export interface RouteResult {
   modelId: string;
   modelDbId: number;
   apiKey: string;
-  keyId: number;
+  keyId: string;
   platform: string;
   displayName: string;
   // Daily limits for this model, so a 429 handler can tell a genuine daily
@@ -721,7 +722,7 @@ function selectKeyForModel(entry: ChainRow, estimatedTokens: number, skipKeys?: 
       modelId: entry.model_id,
       modelDbId: entry.model_db_id,
       apiKey: decryptedKey,
-      keyId: key.id,
+      keyId: key.mongo_id || String(key.id),
       platform: entry.platform,
       displayName: entry.display_name,
       rpdLimit: limits.rpd,
@@ -752,7 +753,7 @@ function selectKeyForModel(entry: ChainRow, estimatedTokens: number, skipKeys?: 
  * record the model-level hit when this returns false — i.e. the 429 exhausted the
  * model, not just one of its keys.
  */
-export function hasOtherUsableKey(modelDbId: number, excludingKeyId: number, skipKeys?: Set<string>): boolean {
+export function hasOtherUsableKey(modelDbId: number, excludingKeyId: string | number, skipKeys?: Set<string>): boolean {
   const db = getDb();
   const m = db.prepare(`
     SELECT platform, model_id, rpm_limit, rpd_limit, tpm_limit, tpd_limit, key_id
@@ -760,28 +761,29 @@ export function hasOtherUsableKey(modelDbId: number, excludingKeyId: number, ski
   `).get(modelDbId) as {
     platform: string; model_id: string;
     rpm_limit: number | null; rpd_limit: number | null;
-    tpm_limit: number | null; tpd_limit: number | null; key_id: number | null;
+    tpm_limit: number | null; tpd_limit: number | null; key_id: string | null;
   } | undefined;
   if (!m) return false;
 
   const limits = { rpm: m.rpm_limit, rpd: m.rpd_limit, tpm: m.tpm_limit, tpd: m.tpd_limit };
   const keys = db.prepare(
-    "SELECT id FROM api_keys WHERE platform = ? AND enabled = 1 AND status IN ('healthy', 'unknown')"
-  ).all(m.platform) as { id: number }[];
+    "SELECT id, mongo_id FROM api_keys WHERE platform = ? AND enabled = 1 AND status IN ('healthy', 'unknown')"
+  ).all(m.platform) as { id: number; mongo_id: string | null }[];
 
   for (const k of keys) {
-    if (k.id === excludingKeyId) continue;
+    const keyCompareId = k.mongo_id || String(k.id);
+    if (keyCompareId === String(excludingKeyId)) continue;
     // A custom model binds to exactly one endpoint key (#212); a sibling custom
     // key cannot serve it, so it doesn't count as an alternative.
-    if (m.platform === 'custom' && m.key_id != null && k.id !== m.key_id) continue;
-    if (skipKeys?.has(`${m.platform}:${m.model_id}:${k.id}`)) continue;
-    if (isOnCooldown(m.platform, m.model_id, k.id)) continue;
-    if (!canUseProvider(m.platform, k.id)) continue;
-    if (!canMakeRequest(m.platform, m.model_id, k.id, limits)) continue;
+    if (m.platform === 'custom' && m.key_id != null && keyCompareId !== m.key_id) continue;
+    if (skipKeys?.has(`${m.platform}:${m.model_id}:${keyCompareId}`)) continue;
+    if (isOnCooldown(m.platform, m.model_id, keyCompareId)) continue;
+    if (!canUseProvider(m.platform, keyCompareId)) continue;
+    if (!canMakeRequest(m.platform, m.model_id, keyCompareId, limits)) continue;
     // A per-minute token spike on the failed key doesn't mean a fresh key lacks
     // headroom; a nominal 1-token probe only rules out a key already at its
     // TPM/TPD ceiling.
-    if (!canUseTokens(m.platform, m.model_id, k.id, 1, limits)) continue;
+    if (!canUseTokens(m.platform, m.model_id, keyCompareId, 1, limits)) continue;
     return true;
   }
   return false;

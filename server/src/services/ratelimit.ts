@@ -41,7 +41,7 @@ function withDb<T>(fn: (db: RateLimitDb) => T): T | undefined {
 function recordUsage(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   kind: UsageKind,
   tokens: number,
   now: number,
@@ -58,7 +58,7 @@ function recordUsage(
 function countPersistedRequests(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   windowMs: number,
   now: number,
 ): number | undefined {
@@ -67,10 +67,10 @@ function countPersistedRequests(
       SELECT COUNT(*) AS used
         FROM rate_limit_usage
        WHERE platform = ?
-         AND model_id = ?
-         AND key_id = ?
-         AND kind = 'request'
-         AND created_at_ms > ?
+          AND model_id = ?
+          AND key_id = ?
+          AND kind = 'request'
+          AND created_at_ms > ?
     `).get(platform, modelId, keyId, now - windowMs) as { used: number };
     return row.used;
   });
@@ -79,7 +79,7 @@ function countPersistedRequests(
 function sumPersistedTokens(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   windowMs: number,
   now: number,
 ): number | undefined {
@@ -88,10 +88,10 @@ function sumPersistedTokens(
       SELECT COALESCE(SUM(tokens), 0) AS used
         FROM rate_limit_usage
        WHERE platform = ?
-         AND model_id = ?
-         AND key_id = ?
-         AND kind = 'tokens'
-         AND created_at_ms > ?
+          AND model_id = ?
+          AND key_id = ?
+          AND kind = 'tokens'
+          AND created_at_ms > ?
     `).get(platform, modelId, keyId, now - windowMs) as { used: number };
     return row.used;
   });
@@ -112,7 +112,7 @@ function memoryTokenCount(key: string, windowMs: number, now: number): number {
 function requestCount(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   windowMs: number,
   now: number,
 ): number {
@@ -125,7 +125,7 @@ function requestCount(
 function tokenCount(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   windowMs: number,
   now: number,
 ): number {
@@ -138,7 +138,7 @@ function tokenCount(
 export function canMakeRequest(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   limits: { rpm: number | null; rpd: number | null; tpm: number | null; tpd: number | null },
 ): boolean {
   const now = Date.now();
@@ -157,7 +157,7 @@ export function canMakeRequest(
 export function canUseTokens(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   estimatedTokens: number,
   limits: { tpm: number | null; tpd: number | null },
 ): boolean {
@@ -201,7 +201,7 @@ export function getProviderDailyRequestCap(platform: string): number | null {
 
 function countPersistedProviderRequests(
   platform: string,
-  keyId: number,
+  keyId: number | string,
   windowMs: number,
   now: number,
 ): number | undefined {
@@ -219,7 +219,7 @@ function countPersistedProviderRequests(
 }
 
 // Total requests today for a provider account+key, summed across every model.
-export function providerDailyRequestCount(platform: string, keyId: number, now = Date.now()): number {
+export function providerDailyRequestCount(platform: string, keyId: number | string, now = Date.now()): number {
   const persisted = countPersistedProviderRequests(platform, keyId, DAY, now);
   if (persisted !== undefined) return persisted;
   // DB-unavailable fallback: sum the per-model rpd windows for this platform+key.
@@ -235,13 +235,13 @@ export function providerDailyRequestCount(platform: string, keyId: number, now =
 
 // False when this provider account+key has hit its shared daily request cap, so
 // the router skips every model on that provider for this key until UTC-ish reset.
-export function canUseProvider(platform: string, keyId: number, now = Date.now()): boolean {
+export function canUseProvider(platform: string, keyId: number | string, now = Date.now()): boolean {
   const cap = getProviderDailyRequestCap(platform);
   if (cap === null) return true;
   return providerDailyRequestCount(platform, keyId, now) < cap;
 }
 
-export function recordRequest(platform: string, modelId: string, keyId: number) {
+export function recordRequest(platform: string, modelId: string, keyId: number | string) {
   const now = Date.now();
 
   const rpmKey = `${platform}:${modelId}:${keyId}:rpm`;
@@ -257,7 +257,7 @@ export function recordRequest(platform: string, modelId: string, keyId: number) 
 export function recordTokens(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   tokens: number,
 ) {
   const now = Date.now();
@@ -289,7 +289,7 @@ const COOLDOWN_DURATIONS = [
   DAY,          // 4th and beyond
 ];
 
-export function getNextCooldownDuration(platform: string, modelId: string, keyId: number): number {
+export function getNextCooldownDuration(platform: string, modelId: string, keyId: number | string): number {
   const key = `${platform}:${modelId}:${keyId}`;
   const now = Date.now();
   const hits = (cooldownHits.get(key) ?? []).filter(t => t > now - DAY);
@@ -376,7 +376,7 @@ export function recentHitCount(
 export function getCooldownDurationForLimit(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   limits: { rpd: number | null; tpd: number | null },
   retryAfterMs?: number | null,
 ): number {
@@ -411,7 +411,7 @@ export function getCooldownDurationForLimit(
 function persistedCooldownExpiry(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
 ): number | null | undefined {
   return withDb(db => {
     const row = db.prepare(`
@@ -425,7 +425,7 @@ function persistedCooldownExpiry(
   });
 }
 
-function persistCooldown(platform: string, modelId: string, keyId: number, expiresAtMs: number) {
+function persistCooldown(platform: string, modelId: string, keyId: number | string, expiresAtMs: number) {
   withDb(db => {
     db.prepare(`
       INSERT INTO rate_limit_cooldowns (platform, model_id, key_id, expires_at_ms)
@@ -436,7 +436,7 @@ function persistCooldown(platform: string, modelId: string, keyId: number, expir
   });
 }
 
-function clearPersistedCooldown(platform: string, modelId: string, keyId: number) {
+function clearPersistedCooldown(platform: string, modelId: string, keyId: number | string) {
   withDb(db => {
     db.prepare(`
       DELETE FROM rate_limit_cooldowns
@@ -447,14 +447,14 @@ function clearPersistedCooldown(platform: string, modelId: string, keyId: number
   });
 }
 
-export function setCooldown(platform: string, modelId: string, keyId: number, durationMs = 60_000) {
+export function setCooldown(platform: string, modelId: string, keyId: number | string, durationMs = 60_000) {
   const key = `${platform}:${modelId}:${keyId}:cooldown`;
   const expiresAtMs = Date.now() + durationMs;
   cooldowns.set(key, expiresAtMs);
   persistCooldown(platform, modelId, keyId, expiresAtMs);
 }
 
-export function isOnCooldown(platform: string, modelId: string, keyId: number): boolean {
+export function isOnCooldown(platform: string, modelId: string, keyId: number | string): boolean {
   const key = `${platform}:${modelId}:${keyId}:cooldown`;
   const now = Date.now();
   const persistedExpiry = persistedCooldownExpiry(platform, modelId, keyId);
@@ -496,7 +496,7 @@ export function getSoonestCooldownExpiry(now = Date.now()): number | null {
 export function getRateLimitStatus(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   limits: { rpm: number | null; rpd: number | null; tpm: number | null; tpd: number | null },
 ) {
   const now = Date.now();

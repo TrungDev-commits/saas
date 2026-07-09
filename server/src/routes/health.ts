@@ -26,7 +26,7 @@ healthRouter.get('/', (_req: Request, res: Response) => {
   `).all() as any[];
 
   const keys = db.prepare(`
-    SELECT id, platform, label, status, enabled, created_at, last_checked_at
+    SELECT id, platform, label, status, enabled, created_at, last_checked_at, mongo_id
     FROM api_keys
     ORDER BY platform, created_at DESC
   `).all() as any[];
@@ -44,7 +44,7 @@ healthRouter.get('/', (_req: Request, res: Response) => {
       enabledKeys: p.enabled_keys,
     })),
     keys: keys.map(k => ({
-      id: k.id,
+      id: k.mongo_id || k.id,
       platform: k.platform,
       label: k.label,
       status: k.status,
@@ -58,8 +58,8 @@ healthRouter.get('/', (_req: Request, res: Response) => {
 
 // Check a specific key
 healthRouter.post('/check/:keyId', async (req: Request, res: Response) => {
-  const keyId = parseInt(req.params.keyId as string, 10);
-  if (isNaN(keyId)) {
+  const keyId = req.params.keyId as string;
+  if (!keyId) {
     res.status(400).json({ error: { message: 'Invalid key ID' } });
     return;
   }
