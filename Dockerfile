@@ -45,7 +45,8 @@ COPY --from=build-shared /app/shared ./shared
 RUN npm ci --workspace=server --omit=dev
 
 # Copy generated Prisma client and schema
-COPY --from=build-server /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build-server /app/server/node_modules/.prisma ./server/node_modules/.prisma
+COPY --from=build-server /app/server/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build-server /app/server/prisma ./server/prisma
 
 # Copy built artifacts
