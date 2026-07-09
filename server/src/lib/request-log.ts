@@ -43,7 +43,7 @@ function setSettingIfMissing(db: LogTx, key: string, value: string): void {
 export function logRequest(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   status: string,
   inputTokens: number,
   outputTokens: number,

@@ -208,7 +208,7 @@ export interface CachedResponse {
   body: unknown; // the full OpenAI-shaped completion JSON, replayed verbatim
   platform: string;
   modelId: string;
-  keyId: number | null;
+  keyId: number | string | null;
   promptTokens: number;
   completionTokens: number;
 }
@@ -217,7 +217,7 @@ export interface StoreInput {
   body: unknown;
   platform: string;
   modelId: string;
-  keyId: number | null;
+  keyId: number | string | null;
   promptTokens: number;
   completionTokens: number;
 }
@@ -226,7 +226,7 @@ interface CacheEntry {
   body: unknown;
   platform: string;
   modelId: string;
-  keyId: number | null;
+  keyId: number | string | null;
   promptTokens: number;
   completionTokens: number;
   hitCount: number;

@@ -172,9 +172,9 @@ export const AUTH_FAILURE_COOLDOWN_MS = 5 * 60 * 1000;
 // Dedupe window for the fire-and-forget revalidation: many concurrent requests
 // hitting the same bad key must not stampede the provider's validate endpoint.
 const REVALIDATION_DEDUPE_MS = 30_000;
-const lastRevalidation = new Map<number, number>();
+const lastRevalidation = new Map<number | string, number>();
 
-function triggerKeyRevalidation(platform: string, keyId: number): void {
+function triggerKeyRevalidation(platform: string, keyId: number | string): void {
   const now = Date.now();
   const last = lastRevalidation.get(keyId) ?? 0;
   if (now - last < REVALIDATION_DEDUPE_MS) return;
