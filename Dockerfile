@@ -20,6 +20,7 @@ RUN npm run build -w client
 
 # ── Stage 3: build server (TypeScript) ─────────────────────────────────────
 FROM node:22-alpine AS build-server
+RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json ./shared/
@@ -34,6 +35,7 @@ RUN npm run build -w server
 
 # ── Stage 4: production image ───────────────────────────────────────────────
 FROM node:22-alpine AS production
+RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 
 # Install only production dependencies
