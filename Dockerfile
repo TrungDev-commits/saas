@@ -24,11 +24,12 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json ./shared/
 COPY server/package.json ./server/
+COPY client/package.json ./client/
 COPY --from=build-shared /app/shared ./shared
 # Install all server deps (including devDependencies for tsc)
 RUN npm ci --workspace=server
 COPY server/ ./server/
-RUN npx --no-install prisma generate --schema=server/prisma/schema.prisma
+RUN ./node_modules/.bin/prisma generate --schema=server/prisma/schema.prisma
 RUN npm run build -w server
 
 # ── Stage 4: production image ───────────────────────────────────────────────
@@ -39,6 +40,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json ./shared/
 COPY server/package.json ./server/
+COPY client/package.json ./client/
 COPY --from=build-shared /app/shared ./shared
 RUN npm ci --workspace=server --omit=dev
 
