@@ -270,9 +270,10 @@ export function buildResponseObject(opts: {
 }
 
 function quotaContextForRoute(route: RouteResult, endpoint: string): QuotaObservationContext {
+  const numericKeyId = Number(route.keyId);
   return {
     platform: route.platform as Platform,
-    keyId: route.keyId,
+    keyId: Number.isNaN(numericKeyId) ? undefined : numericKeyId,
     modelId: route.modelId,
     quotaPoolKey: inferQuotaPoolKey(route.platform as Platform, route.modelId),
     endpoint,

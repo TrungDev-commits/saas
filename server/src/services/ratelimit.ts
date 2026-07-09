@@ -337,21 +337,21 @@ const NULL_LIMIT_HIT_THRESHOLD = 2;
 const NULL_LIMIT_HIT_WINDOW_MS = HOUR;
 const nullLimitHits = new Map<string, number[]>(); // key -> timestamps
 
-function recordNullLimitHit(platform: string, modelId: string, keyId: number, now: number): void {
+function recordNullLimitHit(platform: string, modelId: string, keyId: number | string, now: number): void {
   const key = `${platform}:${modelId}:${keyId}`;
   const hits = nullLimitHits.get(key) ?? [];
   hits.push(now);
   nullLimitHits.set(key, hits);
 }
 
-function clearNullLimitHits(platform: string, modelId: string, keyId: number): void {
+function clearNullLimitHits(platform: string, modelId: string, keyId: number | string): void {
   nullLimitHits.delete(`${platform}:${modelId}:${keyId}`);
 }
 
 export function recentHitCount(
   platform: string,
   modelId: string,
-  keyId: number,
+  keyId: number | string,
   now: number,
   windowMs: number = NULL_LIMIT_HIT_WINDOW_MS,
 ): number {
